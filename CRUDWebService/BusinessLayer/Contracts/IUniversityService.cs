@@ -1,4 +1,4 @@
-﻿using CRUDWebService.BusinessLayer.DTO;
+﻿using CRUDWebService.BusinessLayer.DTO.University;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +12,6 @@ namespace CRUDWebService.BusinessLayer.Contracts
         IEnumerable<UniversityDTO> GetAll();
         UniversityDTO Get(int id);
         Task<UniversityDTO> EditAsync(EditUniversityDTO addUnivesity);
-        Task RemoveAsync(RemoveUniversityDTO addUnivesity);
+        Task<int> RemoveAsync(RemoveUniversityDTO addUnivesity);
     }
 }

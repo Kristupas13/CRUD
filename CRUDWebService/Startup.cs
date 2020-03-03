@@ -40,6 +40,7 @@ namespace CRUDWebService
             });
 
             services.AddTransient<IUniversityService, UniversityService>();
+            services.AddTransient<IStudentService, StudentService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

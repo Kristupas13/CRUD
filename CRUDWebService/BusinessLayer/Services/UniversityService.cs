@@ -1,5 +1,5 @@
 ﻿using CRUDWebService.BusinessLayer.Contracts;
-using CRUDWebService.BusinessLayer.DTO;
+using CRUDWebService.BusinessLayer.DTO.University;
 using CRUDWebService.DataLayer.Context;
 using CRUDWebService.DataLayer.Entities;
 using System.Collections.Generic;
@@ -19,14 +19,14 @@ namespace CRUDWebService.BusinessLayer.Services
 
         public async Task<UniversityDTO> AddAsync(AddUnivesityDTO addUnivesity)
         {
-            _db.Universities.Add(new University
+            var model = _db.Universities.Add(new University
             {
                 Address = addUnivesity.Address,
                 Name = addUnivesity.Name
-            });
+            }).Entity;
             await _db.SaveChangesAsync();
 
-            return new UniversityDTO { Address = addUnivesity.Address, Name = addUnivesity.Name };
+            return new UniversityDTO { Address = addUnivesity.Address, Name = addUnivesity.Name, UniversityId = model.UniversityId };
         }
 
         public async Task<UniversityDTO> EditAsync(EditUniversityDTO editUniversity)
@@ -36,7 +36,7 @@ namespace CRUDWebService.BusinessLayer.Services
             entity.Address = string.IsNullOrEmpty(editUniversity.Name) ? entity.Address : editUniversity.Name;
             await _db.SaveChangesAsync();
 
-            return new UniversityDTO { Address = editUniversity.Address, Name = editUniversity.Name };
+            return new UniversityDTO { Address = editUniversity.Address, Name = editUniversity.Name, UniversityId = entity.UniversityId };
         }
 
         public UniversityDTO Get(int id)
@@ -48,12 +48,20 @@ namespace CRUDWebService.BusinessLayer.Services
 
         public IEnumerable<UniversityDTO> GetAll()
         {
-            return _db.Universities.Select(p => new UniversityDTO { Name = p.Name, Address = p.Address });
+            return _db.Universities.Select(p => new UniversityDTO { Name = p.Name, Address = p.Address, UniversityId = p.UniversityId });
         }
 
-        public async Task RemoveAsync(RemoveUniversityDTO addUnivesity)
+        public async Task<int> RemoveAsync(RemoveUniversityDTO removeUniversity)
         {
-             await Task.Run(() => _db.Remove(addUnivesity.UniversityId));
+            var university = _db.Universities.SingleOrDefault(p => p.UniversityId == removeUniversity.UniversityId);
+
+            if (university == null)
+                return -1;
+
+            _db.Universities.Remove(university);
+            await _db.SaveChangesAsync();
+
+            return 1;
         }
     }
 }

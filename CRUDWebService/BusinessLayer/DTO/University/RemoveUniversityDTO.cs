@@ -1,4 +1,4 @@
-﻿namespace CRUDWebService.BusinessLayer.DTO
+﻿namespace CRUDWebService.BusinessLayer.DTO.University
 {
     public class RemoveUniversityDTO
     {

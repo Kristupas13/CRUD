@@ -1,20 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace CRUDWebService.DataLayer.Entities
+namespace CRUDWebService.PresentationLayer.ViewModels
 {
-    public class Student
+    public class EditStudentViewModel
     {
-        [Key]
         public int StudentId { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public int AverageGrade { get; set; }
-        public int UniversityId { get; set; }
-
-        public University University { get; set; }
     }
 }
