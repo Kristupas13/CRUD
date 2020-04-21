@@ -4,12 +4,13 @@ using CRUDWebService.PresentationLayer.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace CRUDWebService.PresentationLayer.Controllers
 {
     [ApiController]
-    [Route("universities/{universityId}/[controller]")]
+    [Route("Universities/{universityId}/[controller]")]
     public class StudentsController : Controller
     {
         private readonly IStudentService _service;
@@ -20,12 +21,15 @@ namespace CRUDWebService.PresentationLayer.Controllers
         }
 
         [HttpPost]
-        [Route("create")]
-        public async Task<StudentViewModel> Create(CreateStudentViewModel viewModel, int universityId)
+        public async Task<IActionResult> Create(CreateStudentViewModel viewModel, int universityId)
         {
             var studentDto = new AddStudentDTO { FirstName = viewModel.FirstName, LastName = viewModel.LastName, AverageGrade = viewModel.AverageGrade, UniversityId = universityId };
             var model = await _service.AddAsync(studentDto);
-            return new StudentViewModel { StudentId = model.StudentId, FirstName = model.FirstName, LastName = model.LastName, AverageGrade = model.AverageGrade, UniversityId = model.UniversityId };
+            if (model == null)
+            {
+                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error when creating a student" }) { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+            return Ok(new StudentViewModel { StudentId = model.StudentId, FirstName = model.FirstName, LastName = model.LastName, AverageGrade = model.AverageGrade, UniversityId = model.UniversityId });
         }
 
         [HttpGet]
@@ -36,30 +40,37 @@ namespace CRUDWebService.PresentationLayer.Controllers
 
         [HttpGet]
         [Route("{studentId}")]
-        public StudentViewModel Get(int studentId, int universityId)
+        public IActionResult Get(int studentId, int universityId)
         {
             var dto = _service.Get(studentId, universityId);
-            return new StudentViewModel { StudentId = dto.StudentId, FirstName = dto.FirstName, LastName = dto.LastName, AverageGrade = dto.AverageGrade, UniversityId = dto.UniversityId };
+            if (dto == null)
+            {
+                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error when creating a student" }) { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+            return Ok(new StudentViewModel { StudentId = dto.StudentId, FirstName = dto.FirstName, LastName = dto.LastName, AverageGrade = dto.AverageGrade, UniversityId = dto.UniversityId });
         }
 
         [HttpPut]
-        [Route("edit")]
-        public async Task<StudentViewModel> Edit(EditStudentViewModel viewModel, int universityId)
+        public async Task<IActionResult> Edit(EditStudentViewModel viewModel, int universityId)
         {
             var model = await _service.EditAsync(new EditStudentDTO { FirstName = viewModel.FirstName, LastName = viewModel.LastName, AverageGrade = viewModel.AverageGrade, StudentId = viewModel.StudentId, UniversityId = universityId });
-            return new StudentViewModel { StudentId = model.StudentId, FirstName = model.FirstName, LastName = model.LastName, UniversityId = model.UniversityId, AverageGrade = model.AverageGrade };
+            if (model == null)
+            {
+                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error when creating a student" }) { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+            return Ok(new StudentViewModel { StudentId = model.StudentId, FirstName = model.FirstName, LastName = model.LastName, UniversityId = model.UniversityId, AverageGrade = model.AverageGrade });
         }
 
         [HttpDelete]
-        [Route("delete/{studentId}")]
-        public async Task<string> Delete(int studentId)
+        [Route("{studentId}")]
+        public async Task<IActionResult> Delete(int studentId)
         {
             var status = await _service.RemoveAsync(new RemoveStudentDTO { StudentId = studentId });
 
             if (status != -1)
-                return $"University with Id = {studentId} has been deleted";
+                return new JsonResult(new ReturnMessage { MessageContent = $"University with Id = {studentId} has been deleted" }) { StatusCode = (int)HttpStatusCode.OK };
             else
-                return $"Error occured when deleting university with Id = {studentId}";
+                return new JsonResult(new ReturnMessage { MessageContent = $"Error occured when deleting university with Id = {studentId}" }) { StatusCode = (int)HttpStatusCode.NotFound };
         }
     }
 }

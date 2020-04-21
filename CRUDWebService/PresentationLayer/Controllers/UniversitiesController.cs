@@ -1,10 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using CRUDWebService.BusinessLayer.Contracts;
 using CRUDWebService.BusinessLayer.DTO.University;
-using CRUDWebService.DataLayer.Context;
-using CRUDWebService.DataLayer.Entities;
+using CRUDWebService.PresentationLayer;
 using CRUDWebService.PresentationLayer.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,12 +22,15 @@ namespace CRUDWebService.Controllers
         }
 
         [HttpPost]
-        [Route("create")]
-        public async Task<UniversityViewModel> Create(CreateUniversityViewModel viewModel)
+        public async Task<IActionResult> Create(CreateUniversityViewModel viewModel)
         {
             var universityDto = new AddUnivesityDTO { Name = viewModel.Name, Address = viewModel.Address };
             var model = await _service.AddAsync(universityDto);
-            return new UniversityViewModel { UniversityId = model.UniversityId, Address = model.Address, Name = model.Name };
+            if (model == null)
+            {
+                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error when creating an university" }) { StatusCode = (int)HttpStatusCode.BadRequest };
+            }
+            return Created($"http://localhost:44325/Universities/{model.UniversityId}", model);
         }
 
         [HttpGet]
@@ -38,30 +41,38 @@ namespace CRUDWebService.Controllers
 
         [HttpGet]
         [Route("{id}")]
-        public UniversityViewModel Get(int id)
+        public IActionResult Get(int id)
         {
             var dto = _service.Get(id);
-            return new UniversityViewModel { UniversityId = dto.UniversityId, Address = dto.Address, Name = dto.Name };
+            if (dto == null)
+            {
+                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error when fetching an university: University not found" }) { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+            return Ok(new UniversityViewModel { UniversityId = dto.UniversityId, Address = dto.Address, Name = dto.Name });
         }
 
         [HttpPut]
-        [Route("edit")]
-        public async Task<UniversityViewModel> Edit(EditUniversityViewModel viewModel)
+        [Route("{id}")]
+        public async Task<IActionResult> Edit(EditUniversityViewModel viewModel, int id)
         {
-            var model = await _service.EditAsync(new EditUniversityDTO { UniversityId = viewModel.UniversityId, Name = viewModel.Name, Address = viewModel.Address });
-            return new UniversityViewModel { UniversityId = model.UniversityId, Address = model.Address, Name = model.Name };
+            var model = await _service.EditAsync(new EditUniversityDTO { UniversityId = id, Name = viewModel.Name, Address = viewModel.Address });
+            if (model == null)
+            {
+                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error when editing an university: University not found" }) { StatusCode = (int)HttpStatusCode.NotFound };
+            }
+            return Ok(new UniversityViewModel { UniversityId = model.UniversityId, Address = model.Address, Name = model.Name });
         }
 
         [HttpDelete]
-        [Route("delete/{id}")]
-        public async Task<string> Delete(int id)
+        [Route("{id}")]
+        public async Task<IActionResult> Delete(int id)
         {
             var status = await _service.RemoveAsync(new RemoveUniversityDTO { UniversityId = id });
 
             if (status != -1)
-                return $"University with Id = {id} has been deleted";
+                return new JsonResult(new ReturnMessage { MessageContent = "University has been deleted" }) { StatusCode = (int)HttpStatusCode.OK };
             else
-                return $"Error occured when deleting university with Id = {id}";
+                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error: University not found" }) { StatusCode = (int)HttpStatusCode.NotFound };
         }
     }
 }

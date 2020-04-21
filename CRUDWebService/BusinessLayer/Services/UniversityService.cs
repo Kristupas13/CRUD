@@ -2,6 +2,7 @@
 using CRUDWebService.BusinessLayer.DTO.University;
 using CRUDWebService.DataLayer.Context;
 using CRUDWebService.DataLayer.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -19,31 +20,52 @@ namespace CRUDWebService.BusinessLayer.Services
 
         public async Task<UniversityDTO> AddAsync(AddUnivesityDTO addUnivesity)
         {
-            var model = _db.Universities.Add(new University
+            try
             {
-                Address = addUnivesity.Address,
-                Name = addUnivesity.Name
-            }).Entity;
-            await _db.SaveChangesAsync();
+                var model = _db.Universities.Add(new University
+                {
+                    Address = addUnivesity.Address,
+                    Name = addUnivesity.Name
+                }).Entity;
+                await _db.SaveChangesAsync();
 
-            return new UniversityDTO { Address = addUnivesity.Address, Name = addUnivesity.Name, UniversityId = model.UniversityId };
+                return new UniversityDTO { Address = addUnivesity.Address, Name = addUnivesity.Name, UniversityId = model.UniversityId };
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public async Task<UniversityDTO> EditAsync(EditUniversityDTO editUniversity)
         {
-            var entity = _db.Universities.Find(editUniversity.UniversityId);
-            entity.Name = string.IsNullOrEmpty(editUniversity.Name) ? entity.Name : editUniversity.Name;
-            entity.Address = string.IsNullOrEmpty(editUniversity.Name) ? entity.Address : editUniversity.Name;
-            await _db.SaveChangesAsync();
+            try
+            {
+                var entity = _db.Universities.Find(editUniversity.UniversityId);
+                entity.Name = string.IsNullOrEmpty(editUniversity.Name) ? entity.Name : editUniversity.Name;
+                entity.Address = string.IsNullOrEmpty(editUniversity.Name) ? entity.Address : editUniversity.Name;
+                await _db.SaveChangesAsync();
 
-            return new UniversityDTO { Address = editUniversity.Address, Name = editUniversity.Name, UniversityId = entity.UniversityId };
+                return new UniversityDTO { Address = editUniversity.Address, Name = editUniversity.Name, UniversityId = entity.UniversityId };
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public UniversityDTO Get(int id)
         {
-            var entity = _db.Universities.Find(id);
+            try
+            {
+                var entity = _db.Universities.Find(id);
 
-            return new UniversityDTO { Address = entity.Address, Name = entity.Name } ;
+                return new UniversityDTO { Address = entity.Address, Name = entity.Name };
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public IEnumerable<UniversityDTO> GetAll()
