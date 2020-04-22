@@ -1,7 +1,7 @@
 # CRUD
 Simple CRUD for Vilnius University WebServices course
 
-After cloning/downloading type:
+After cloning/downloading:
 
 cd CRUDWebService
 
