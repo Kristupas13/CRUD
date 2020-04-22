@@ -3,6 +3,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using CRUDWebService.BusinessLayer.Contracts;
+using CRUDWebService.BusinessLayer.DTO;
 using CRUDWebService.BusinessLayer.DTO.University;
 using CRUDWebService.PresentationLayer;
 using CRUDWebService.PresentationLayer.ViewModels;
@@ -73,6 +74,74 @@ namespace CRUDWebService.Controllers
                 return new JsonResult(new ReturnMessage { MessageContent = "University has been deleted" }) { StatusCode = (int)HttpStatusCode.OK };
             else
                 return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error: University not found" }) { StatusCode = (int)HttpStatusCode.NotFound };
+        }
+
+        [HttpGet]
+        [Route("{universityId}/books")]
+        public async Task<IActionResult> GetUniversityBooks(int universityId)
+        {
+            var universityBooks = await _service.GetUniversityBooks(universityId);
+            if (universityBooks == null)
+                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error has occured. Please try again later or contact support." }) { StatusCode = (int)HttpStatusCode.BadRequest };
+            else
+            {
+                if (!universityBooks.Any())
+                    return new JsonResult(new ReturnMessage { MessageContent = "No books found by that university id." }) { StatusCode = (int)HttpStatusCode.NotFound };
+
+                return Ok(universityBooks.Select(p => new UniversityBookViewModel { Author = p.Autorius, Title = p.Pavadinimas, ISBN = p.ISBN, Year = p.Metai }));
+            }
+        }
+
+        [HttpGet]
+        [Route("{universityId}/books/{bookISBN}")]
+        public async Task<IActionResult> GetUniversityBookByISBN(int universityId, string bookISBN)
+        {
+            var universityBook = await _service.GetUniversityBookByISBN(universityId, bookISBN);
+            if (universityBook.IsError)
+                return new JsonResult(new ReturnMessage { MessageContent = universityBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
+            else
+            {
+                return Ok(new UniversityBookViewModel { Author = universityBook.Autorius, Title = universityBook.Pavadinimas, ISBN = universityBook.ISBN, Year = universityBook.Metai });
+            }
+        }
+
+        [HttpPost]
+        [Route("{universityId}/books")]
+        public async Task<IActionResult> AddBookToUniversity(string bookISBN, int universityId)
+        {
+            var addedBook = await _service.AddBookToUniversityAsync(universityId, bookISBN);
+            if (addedBook.IsError)
+                return new JsonResult(new ReturnMessage { MessageContent = addedBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
+            else
+            {
+                return Ok(new UniversityBookReferenceViewModel { BookISBN = addedBook.BookISBN, UniversityId = addedBook.UniversityId });
+            }
+        }
+
+        [HttpPut]
+        [Route("{universityId}/books")]
+        public async Task<IActionResult> EditBookUniversity(string universityBook, int universityId)
+        {
+            var editedBook = await _service.EditUniversityBookAsync(universityId, universityBook);
+            if (editedBook.IsError)
+                return new JsonResult(new ReturnMessage { MessageContent = editedBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
+            else
+            {
+                return Ok(new UniversityBookReferenceViewModel { BookISBN = editedBook.BookISBN, UniversityId = editedBook.UniversityId });
+            }
+        }
+
+        [HttpDelete]
+        [Route("{universityId}/books/{bookISBN}")]
+        public async Task<IActionResult> RemoveBookFromUniversity(int universityId, string bookISBN)
+        {
+            var removeStatus = await _service.RemoveUniversityBookAsync(universityId, bookISBN);
+            if (removeStatus.IsError)
+                return new JsonResult(new ReturnMessage { MessageContent = removeStatus.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
+            else
+            {
+                return new JsonResult(new ReturnMessage { MessageContent = "Book has been removed" }) { StatusCode = (int)HttpStatusCode.OK };
+            }
         }
     }
 }

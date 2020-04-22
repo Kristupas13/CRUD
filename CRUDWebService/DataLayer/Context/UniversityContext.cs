@@ -7,6 +7,7 @@ namespace CRUDWebService.DataLayer.Context
     {
         public DbSet<University> Universities { get; set; }
         public DbSet<Student> Students { get; set; }
+        public DbSet<UniversityBook> UniversityBooks { get; set; }
 
         public UniversityContext(DbContextOptions options) : base (options)
         {
