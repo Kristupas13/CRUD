@@ -100,140 +100,163 @@ namespace CRUDWebService.BusinessLayer.Services
 
         public async Task<IEnumerable<UniversityBookDTO>> GetUniversityBooks(int universityId)
         {
-            var universityBooksISBN = _db.UniversityBooks.Where(p => p.UniversityId == universityId).Select(p => p.BookISBN);
+            var universityBooks = _db.UniversityBooks.Where(p => p.UniversityId == universityId).ToList();
             using (var client = new HttpClient())
             {
                 var requestURI = BaseBookServiceUri.Append("books").ToString();
-                var response = await client.GetAsync(requestURI);
+                var response = await GetResponseAsync(requestURI);
+                if (response == null)
+                    return null;
+
                 var convertedContent = JsonConvert.DeserializeObject<RootBookList>(await response.Content.ReadAsStringAsync());
-                return convertedContent.Knygos.Where(p => universityBooksISBN.Contains(p.ISBN));
+                return MergeUniversityWithBookInformation(universityBooks, convertedContent.Knygos);
             }
         }
 
         public async Task<UniversityBookDTO> GetUniversityBookByISBN(int universityId, string bookISBN)
         {
-            if (_db.UniversityBooks.Any(p => p.UniversityId == universityId && p.BookISBN == bookISBN))
+            var universityBook = _db.UniversityBooks.Where(p => p.UniversityId == universityId && p.BookISBN == bookISBN).FirstOrDefault();
+            if (universityBook != null)
             {
                 using (var client = new HttpClient())
                 {
                     var requestURI = BaseBookServiceUri.Append("books/" + bookISBN).ToString();
-                    var response = await client.GetAsync(requestURI);
+                    var response = await GetResponseAsync(requestURI);
+
+                    if (response == null)
+                        return new UniversityBookDTO { IsError = true, ErrorMessage = "Unexpected error has occured. Library service could not be found or is not running." };
                     if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                         return new UniversityBookDTO { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
 
                     var convertedContent = JsonConvert.DeserializeObject<RootBookObject>(await response.Content.ReadAsStringAsync());
-                    return convertedContent?.Knyga;
+
+                    return new UniversityBookDTO 
+                    { 
+                        UniversityId = universityId, 
+                        Autorius = convertedContent.Knyga.Autorius, 
+                        ISBN = convertedContent.Knyga.ISBN, 
+                        IsAvailable = universityBook.IsAvailable,
+                        Metai = convertedContent.Knyga.Metai, 
+                        Pavadinimas = convertedContent.Knyga.Pavadinimas, 
+                        AvailableFrom = universityBook.AvailableFrom, 
+                        IsError = false
+                    };
                 }
             }
             else
                 return new UniversityBookDTO { IsError = true, ErrorMessage = "Book does not exist in this university." };
         }
 
-        public async Task<UniversityBookReferences> AddBookToUniversityAsync(int universityId, string bookISBN)
+        public async Task<UniversityBookModifiedDTO> AddBookToUniversityAsync(int universityId, string bookISBN)
         {
             if (!_db.UniversityBooks.Any(p => p.UniversityId == universityId && p.BookISBN == bookISBN))
             {
                 using (var client = new HttpClient())
                 {
                     var requestURI = BaseBookServiceUri.Append("books/" + bookISBN).ToString();
-                    var response = await client.GetAsync(requestURI);
+                    var response = await GetResponseAsync(requestURI);
 
+                    if (response == null)
+                        return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error has occured. Library service could not be found or is not running." };
                     if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                        return new UniversityBookReferences { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
+                        return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
                     if (response.StatusCode == System.Net.HttpStatusCode.OK)
                     {
-                        _db.UniversityBooks.Add(new UniversityBook { UniversityId = universityId, BookISBN = bookISBN });
+                        _db.UniversityBooks.Add(new UniversityBook { UniversityId = universityId, BookISBN = bookISBN, AvailableFrom = DateTime.UtcNow, IsAvailable = true });
                         await _db.SaveChangesAsync();
-                        return new UniversityBookReferences { IsError = false, UniversityId = universityId, BookISBN = bookISBN };
+                        return new UniversityBookModifiedDTO { IsError = false, UniversityId = universityId, BookISBN = bookISBN, AvailableFrom = DateTime.UtcNow, IsAvailable = true };
                     }
 
-                    return new UniversityBookReferences { IsError = true, ErrorMessage = "Unexpected error" };
+                    return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error" };
                 }
             }
             else
-                return new UniversityBookReferences { IsError = true, ErrorMessage = "Book already exists in this university." };
+                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Book already exists in this university." };
 
         }
 
-        public async Task<UniversityBookReferences> EditUniversityBookAsync(int universityId, string bookISBN)
+        public async Task<UniversityBookModifiedDTO> EditUniversityBookAsync(UniversityBookModifiedDTO universityBookEdited)
         {
-            if (_db.UniversityBooks.Any(p => p.UniversityId == universityId && p.BookISBN == bookISBN))
+            if (_db.UniversityBooks.Any(p => p.UniversityId == universityBookEdited.UniversityId && p.BookISBN == universityBookEdited.BookISBN))
             {
                 using (var client = new HttpClient())
                 {
-                    var requestURI = BaseBookServiceUri.Append("books/" + bookISBN).ToString();
-                    var response = await client.GetAsync(requestURI);
+                    var requestURI = BaseBookServiceUri.Append("books/" + universityBookEdited.BookISBN).ToString();
+                    var response = await GetResponseAsync(requestURI);
 
+                    if (response == null)
+                        return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error has occured. Library service could not be found or is not running." };
                     if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                        return new UniversityBookReferences { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
+                        return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
                     if (response.StatusCode == System.Net.HttpStatusCode.OK)
                     {
-                        _db.UniversityBooks.Update(new UniversityBook { UniversityId = universityId, BookISBN = bookISBN });
+                        _db.UniversityBooks.Update(new UniversityBook { UniversityId = universityBookEdited.UniversityId, BookISBN = universityBookEdited.BookISBN });
                         await _db.SaveChangesAsync();
-                        return new UniversityBookReferences { IsError = false, UniversityId = universityId, BookISBN = bookISBN };
+                        return new UniversityBookModifiedDTO { IsError = false, UniversityId = universityBookEdited.UniversityId, BookISBN = universityBookEdited.BookISBN };
                     }
-                    return new UniversityBookReferences { IsError = true, ErrorMessage = "Unexpected error" };
+                    return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error" };
                 }
             }
             else
-                return new UniversityBookReferences { IsError = true, ErrorMessage = "This book does not exist in this university." };
+                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "This book does not exist in this university." };
 
         }
 
-        public async Task<UniversityBookReferences> RemoveUniversityBookAsync(int universityId, string bookISBN)
+        public async Task<UniversityBookModifiedDTO> RemoveUniversityBookAsync(int universityId, string bookISBN)
         {
             if (_db.UniversityBooks.Any(p => p.UniversityId == universityId && p.BookISBN == bookISBN))
             {
-                using (var client = new HttpClient())
-                {
-                    var requestURI = BaseBookServiceUri.Append("books/" + bookISBN).ToString();
-                    var response = await client.GetAsync(requestURI);
+                var requestURI = BaseBookServiceUri.Append("books/" + bookISBN).ToString();
+                var response = await GetResponseAsync(requestURI);
+                if (response == null)
+                    return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error has occured. Library service could not be found or is not running." };
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
+                if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                    return new UniversityBookModifiedDTO { IsError = false };
 
-                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                        return new UniversityBookReferences { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
-                    if (response.StatusCode == System.Net.HttpStatusCode.OK)
-                        return new UniversityBookReferences { IsError = false };
-
-                    return new UniversityBookReferences { IsError = true, ErrorMessage = "Unexpected error" };
-                }
+                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error" };
             }
             else
-                return new UniversityBookReferences { IsError = true, ErrorMessage = "This book does not exist in this university." };
+                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "This book does not exist in this university." };
         }
-        /*
-       public async Task<UniversityBookDTO> AddBookToUniversityAsync(int universityId, UniversityBookDTO universityBook)
-       {
-           using (var client = new HttpClient())
-           {
-               var requestURI = BaseBookServiceUri.Append("books/" + universityBook.ISBN).ToString();
-               var response = await client.PostAsync(requestURI, new StringContent(JsonConvert.SerializeObject(universityBook)));
-               var convertedContent = JsonConvert.DeserializeObject<RootBookObject>(await response.Content.ReadAsStringAsync());
-               return convertedContent.Knyga;
-           }
-       }
 
-       public async Task<UniversityBookDTO> EditUniversityBookAsync(int universityId, UniversityBookDTO universityBook)
-       {
-           using (var client = new HttpClient())
-           {
-               var requestURI = BaseBookServiceUri.Append("books/" + universityBook.ISBN).ToString();
-               var response = await client.PutAsync(requestURI, new StringContent(JsonConvert.SerializeObject(universityBook)));
-               var convertedContent = await response.Content.ReadAsStringAsync();
-               return new UniversityBookDTO() { IsError = false };
-           }
-       }
+        private async Task<HttpResponseMessage> GetResponseAsync(string requestURI)
+        {
+            using (var client = new HttpClient())
+            {
+                try
+                {
+                    return await client.GetAsync(requestURI);
+                }
+                catch (Exception e)
+                {
+                    return null;
+                }
+            }
+        }
 
-       public async Task<int> RemoveUniversityBookAsync(int universityId, string bookISBN)
-       {
-           using (var client = new HttpClient())
-           {
-               var requestURI = BaseBookServiceUri.Append("books/" + bookISBN).ToString();
-               var response = await client.DeleteAsync(requestURI);
-               if (response.StatusCode == System.Net.HttpStatusCode.OK)
-                   return 1;
-               else
-                   return -1;
-           }
-       }*/
+        private IEnumerable<UniversityBookDTO> MergeUniversityWithBookInformation(List<UniversityBook> universityBooks, List<BookDTO> booksInformations)
+        {
+            foreach (var universityBook in universityBooks)
+            {
+                var bookInfo = booksInformations.FirstOrDefault(p => p.ISBN == universityBook.BookISBN);
+
+                if (bookInfo != null)
+                {
+                    yield return new UniversityBookDTO
+                    {
+                        ISBN = bookInfo.ISBN,
+                        Autorius = bookInfo.Autorius,
+                        IsAvailable = universityBook.IsAvailable,
+                        Metai = bookInfo.Metai,
+                        Pavadinimas = bookInfo.Pavadinimas,
+                        AvailableFrom = universityBook.AvailableFrom,
+                        UniversityId = universityBook.UniversityId,
+                        IsError = false
+                    };
+                }
+            }
+        }
     }
 }

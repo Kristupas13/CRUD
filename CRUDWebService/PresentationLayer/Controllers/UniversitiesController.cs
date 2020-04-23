@@ -76,19 +76,20 @@ namespace CRUDWebService.Controllers
                 return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error: University not found" }) { StatusCode = (int)HttpStatusCode.NotFound };
         }
 
+
         [HttpGet]
         [Route("{universityId}/books")]
         public async Task<IActionResult> GetUniversityBooks(int universityId)
         {
             var universityBooks = await _service.GetUniversityBooks(universityId);
             if (universityBooks == null)
-                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error has occured. Please try again later or contact support." }) { StatusCode = (int)HttpStatusCode.BadRequest };
+                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error has occured. Library service could not be found or is not running." }) { StatusCode = (int)HttpStatusCode.BadRequest };
             else
             {
                 if (!universityBooks.Any())
                     return new JsonResult(new ReturnMessage { MessageContent = "No books found by that university id." }) { StatusCode = (int)HttpStatusCode.NotFound };
 
-                return Ok(universityBooks.Select(p => new UniversityBookViewModel { Author = p.Autorius, Title = p.Pavadinimas, ISBN = p.ISBN, Year = p.Metai }));
+                return Ok(universityBooks.Select(p => new UniversityBookInformationViewModel { Author = p.Autorius, Title = p.Pavadinimas, ISBN = p.ISBN, Year = p.Metai, IsAvailable = p.IsAvailable, AvailableFrom = p.AvailableFrom }));
             }
         }
 
@@ -101,7 +102,7 @@ namespace CRUDWebService.Controllers
                 return new JsonResult(new ReturnMessage { MessageContent = universityBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
             else
             {
-                return Ok(new UniversityBookViewModel { Author = universityBook.Autorius, Title = universityBook.Pavadinimas, ISBN = universityBook.ISBN, Year = universityBook.Metai });
+                return Ok(new UniversityBookInformationViewModel { Author = universityBook.Autorius, Title = universityBook.Pavadinimas, ISBN = universityBook.ISBN, Year = universityBook.Metai, AvailableFrom = universityBook.AvailableFrom, IsAvailable = universityBook.IsAvailable  });
             }
         }
 
@@ -114,20 +115,20 @@ namespace CRUDWebService.Controllers
                 return new JsonResult(new ReturnMessage { MessageContent = addedBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
             else
             {
-                return Ok(new UniversityBookReferenceViewModel { BookISBN = addedBook.BookISBN, UniversityId = addedBook.UniversityId });
+                return Ok(new UniversityBookViewModel { BookISBN = addedBook.BookISBN, UniversityId = addedBook.UniversityId, IsAvailable = addedBook.IsAvailable, AvailableFrom = addedBook.AvailableFrom });
             }
         }
 
         [HttpPut]
         [Route("{universityId}/books")]
-        public async Task<IActionResult> EditBookUniversity(string universityBook, int universityId)
+        public async Task<IActionResult> EditBookUniversity(UniversityBookModifiedDTO universityBookEdited)
         {
-            var editedBook = await _service.EditUniversityBookAsync(universityId, universityBook);
+            var editedBook = await _service.EditUniversityBookAsync(universityBookEdited);
             if (editedBook.IsError)
                 return new JsonResult(new ReturnMessage { MessageContent = editedBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
             else
             {
-                return Ok(new UniversityBookReferenceViewModel { BookISBN = editedBook.BookISBN, UniversityId = editedBook.UniversityId });
+                return Ok(new UniversityBookViewModel { BookISBN = editedBook.BookISBN, UniversityId = editedBook.UniversityId, IsAvailable = editedBook.IsAvailable, AvailableFrom = editedBook.AvailableFrom });
             }
         }
 

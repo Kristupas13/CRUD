@@ -11,6 +11,5 @@ namespace CRUDWebService.DataLayer.Entities
         public string Address { get; set; }
 
         public List<Student> Students { get; set; }
-        public List<UniversityBook> UniversityBooks { get; set; }
     }
 }

@@ -18,8 +18,8 @@ namespace CRUDWebService.BusinessLayer.Contracts
 
         Task<IEnumerable<UniversityBookDTO>> GetUniversityBooks(int universityId);
         Task<UniversityBookDTO> GetUniversityBookByISBN(int universityId, string bookISBN);
-        Task<UniversityBookReferences> AddBookToUniversityAsync(int universityId, string bookISBN);
-        Task<UniversityBookReferences> EditUniversityBookAsync(int universityId, string bookISBN);
-        Task<UniversityBookReferences> RemoveUniversityBookAsync(int universityId, string bookISBN);
+        Task<UniversityBookModifiedDTO> AddBookToUniversityAsync(int universityId, string bookISBN);
+        Task<UniversityBookModifiedDTO> EditUniversityBookAsync(UniversityBookModifiedDTO universityBookEdited);
+        Task<UniversityBookModifiedDTO> RemoveUniversityBookAsync(int universityId, string bookISBN);
     }
 }
