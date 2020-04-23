@@ -116,7 +116,7 @@ namespace CRUDWebService.Controllers
             else
             {
                 var model = new UniversityBookViewModel { BookISBN = addedBook.BookISBN, UniversityId = addedBook.UniversityId, IsAvailable = addedBook.IsAvailable, AvailableFrom = addedBook.AvailableFrom };
-                return Created($"http://localhost:44325/Universities/{model.UniversityId}/books/{model.BookISBN}", model);
+                return Created($"http://localhost:8777/Universities/{model.UniversityId}/books/{model.BookISBN}", model);
             }
         }
 

@@ -1,6 +1,19 @@
-version: '2'
+version: '3'
 services:
-  web:
-    build: .
-    ports:
-      - 8777:80
+    movies:
+        build: .
+        ports:
+            - "5000:80"
+        container_name: kristis_vu_service
+        networks:
+            - ws_bridge
+    books:
+        build: ./dema4638
+        ports:
+            - "82:80"
+        container_name: external
+        networks:
+            - ws_bridge
+networks:
+  ws_bridge:
+    external: true

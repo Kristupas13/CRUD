@@ -18,7 +18,7 @@ namespace CRUDWebService.BusinessLayer.Services
     public class UniversityService : IUniversityService
     {
         private readonly UniversityContext _db;
-        private StringBuilder BaseBookServiceUri = new StringBuilder(@"http://localhost:4777/");
+        private StringBuilder BaseBookServiceUri = new StringBuilder(@"http://external:82/");
 
 
         public UniversityService(UniversityContext db)
@@ -121,10 +121,19 @@ namespace CRUDWebService.BusinessLayer.Services
                 using (var client = new HttpClient())
                 {
                     var requestURI = BaseBookServiceUri.Append("books/" + bookISBN).ToString();
-                    var response = await GetResponseAsync(requestURI);
+                    HttpResponseMessage response;
+                        try
+                        {
+                        response = await client.GetAsync(requestURI);
+                        }
+                        catch (Exception e)
+                        {
+                        return new UniversityBookDTO { IsError = true, ErrorMessage = $"Unexpected error has occured. Library service could not be found or is not running. {e.Message}" };
+                    }
+                    // var response = await GetResponseAsync(requestURI);
 
                     if (response == null)
-                        return new UniversityBookDTO { IsError = true, ErrorMessage = "Unexpected error has occured. Library service could not be found or is not running." };
+                        return new UniversityBookDTO { IsError = true, ErrorMessage = $"Unexpected error has occured. Library service could not be found or is not running. {requestURI}" };
                     if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                         return new UniversityBookDTO { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
 
