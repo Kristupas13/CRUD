@@ -83,7 +83,7 @@ namespace CRUDWebService.Controllers
         {
             var universityBooks = await _service.GetUniversityBooks(universityId);
             if (universityBooks == null)
-                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error has occured. Library service could not be found or is not running." }) { StatusCode = (int)HttpStatusCode.BadRequest };
+                return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error has occured. Library service could not be found or is not running." }) { StatusCode = (int)HttpStatusCode.ServiceUnavailable };
             else
             {
                 if (!universityBooks.Any())
@@ -99,7 +99,7 @@ namespace CRUDWebService.Controllers
         {
             var universityBook = await _service.GetUniversityBookByISBN(universityId, bookISBN);
             if (universityBook.IsError)
-                return new JsonResult(new ReturnMessage { MessageContent = universityBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
+                return new JsonResult(new ReturnMessage { MessageContent = universityBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.ServiceUnavailable };
             else
             {
                 return Ok(new UniversityBookInformationViewModel { Author = universityBook.Autorius, Title = universityBook.Pavadinimas, ISBN = universityBook.ISBN, Year = universityBook.Metai, AvailableFrom = universityBook.AvailableFrom, IsAvailable = universityBook.IsAvailable  });
@@ -115,15 +115,16 @@ namespace CRUDWebService.Controllers
                 return new JsonResult(new ReturnMessage { MessageContent = addedBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
             else
             {
-                return Ok(new UniversityBookViewModel { BookISBN = addedBook.BookISBN, UniversityId = addedBook.UniversityId, IsAvailable = addedBook.IsAvailable, AvailableFrom = addedBook.AvailableFrom });
+                var model = new UniversityBookViewModel { BookISBN = addedBook.BookISBN, UniversityId = addedBook.UniversityId, IsAvailable = addedBook.IsAvailable, AvailableFrom = addedBook.AvailableFrom };
+                return Created($"http://localhost:44325/Universities/{model.UniversityId}/books/{model.BookISBN}", model);
             }
         }
 
         [HttpPut]
         [Route("{universityId}/books")]
-        public async Task<IActionResult> EditBookUniversity(UniversityBookModifiedDTO universityBookEdited)
+        public async Task<IActionResult> EditBookUniversity(UniversityModifiedViewModel universityBookEdited, int universityId)
         {
-            var editedBook = await _service.EditUniversityBookAsync(universityBookEdited);
+            var editedBook = await _service.EditUniversityBookAsync(new UniversityBookModifiedDTO { BookISBN = universityBookEdited.BookISBN, AvailableFrom = universityBookEdited.AvailableFrom, IsAvailable = universityBookEdited.IsAvailable, UniversityId = universityId });
             if (editedBook.IsError)
                 return new JsonResult(new ReturnMessage { MessageContent = editedBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
             else

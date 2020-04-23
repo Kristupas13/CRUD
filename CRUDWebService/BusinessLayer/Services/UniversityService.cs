@@ -151,24 +151,9 @@ namespace CRUDWebService.BusinessLayer.Services
         {
             if (!_db.UniversityBooks.Any(p => p.UniversityId == universityId && p.BookISBN == bookISBN))
             {
-                using (var client = new HttpClient())
-                {
-                    var requestURI = BaseBookServiceUri.Append("books/" + bookISBN).ToString();
-                    var response = await GetResponseAsync(requestURI);
-
-                    if (response == null)
-                        return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error has occured. Library service could not be found or is not running." };
-                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                        return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
-                    if (response.StatusCode == System.Net.HttpStatusCode.OK)
-                    {
-                        _db.UniversityBooks.Add(new UniversityBook { UniversityId = universityId, BookISBN = bookISBN, AvailableFrom = DateTime.UtcNow, IsAvailable = true });
-                        await _db.SaveChangesAsync();
-                        return new UniversityBookModifiedDTO { IsError = false, UniversityId = universityId, BookISBN = bookISBN, AvailableFrom = DateTime.UtcNow, IsAvailable = true };
-                    }
-
-                    return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error" };
-                }
+                _db.UniversityBooks.Add(new UniversityBook { UniversityId = universityId, BookISBN = bookISBN, AvailableFrom = DateTime.UtcNow, IsAvailable = true });
+                await _db.SaveChangesAsync();
+                return new UniversityBookModifiedDTO { IsError = false, UniversityId = universityId, BookISBN = bookISBN, AvailableFrom = DateTime.UtcNow, IsAvailable = true };
             }
             else
                 return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Book already exists in this university." };
@@ -177,25 +162,16 @@ namespace CRUDWebService.BusinessLayer.Services
 
         public async Task<UniversityBookModifiedDTO> EditUniversityBookAsync(UniversityBookModifiedDTO universityBookEdited)
         {
-            if (_db.UniversityBooks.Any(p => p.UniversityId == universityBookEdited.UniversityId && p.BookISBN == universityBookEdited.BookISBN))
-            {
-                using (var client = new HttpClient())
-                {
-                    var requestURI = BaseBookServiceUri.Append("books/" + universityBookEdited.BookISBN).ToString();
-                    var response = await GetResponseAsync(requestURI);
+            var bookToUpdate = _db.UniversityBooks.Where(p => p.UniversityId == universityBookEdited.UniversityId && p.BookISBN == universityBookEdited.BookISBN).FirstOrDefault();
 
-                    if (response == null)
-                        return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error has occured. Library service could not be found or is not running." };
-                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                        return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
-                    if (response.StatusCode == System.Net.HttpStatusCode.OK)
-                    {
-                        _db.UniversityBooks.Update(new UniversityBook { UniversityId = universityBookEdited.UniversityId, BookISBN = universityBookEdited.BookISBN });
-                        await _db.SaveChangesAsync();
-                        return new UniversityBookModifiedDTO { IsError = false, UniversityId = universityBookEdited.UniversityId, BookISBN = universityBookEdited.BookISBN };
-                    }
-                    return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error" };
-                }
+            if (bookToUpdate != null)
+            {
+                bookToUpdate.AvailableFrom = universityBookEdited.AvailableFrom;
+                bookToUpdate.IsAvailable = universityBookEdited.IsAvailable;
+
+                _db.UniversityBooks.Update(bookToUpdate);
+                await _db.SaveChangesAsync();
+                return new UniversityBookModifiedDTO { IsError = false, UniversityId = universityBookEdited.UniversityId, BookISBN = universityBookEdited.BookISBN, IsAvailable = bookToUpdate.IsAvailable, AvailableFrom = bookToUpdate.AvailableFrom };
             }
             else
                 return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "This book does not exist in this university." };
@@ -204,18 +180,13 @@ namespace CRUDWebService.BusinessLayer.Services
 
         public async Task<UniversityBookModifiedDTO> RemoveUniversityBookAsync(int universityId, string bookISBN)
         {
-            if (_db.UniversityBooks.Any(p => p.UniversityId == universityId && p.BookISBN == bookISBN))
-            {
-                var requestURI = BaseBookServiceUri.Append("books/" + bookISBN).ToString();
-                var response = await GetResponseAsync(requestURI);
-                if (response == null)
-                    return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error has occured. Library service could not be found or is not running." };
-                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
-                if (response.StatusCode == System.Net.HttpStatusCode.OK)
-                    return new UniversityBookModifiedDTO { IsError = false };
+            var universityBookToRemove = _db.UniversityBooks.Where(p => p.UniversityId == universityId && p.BookISBN == bookISBN).FirstOrDefault();
 
-                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Unexpected error" };
+            if (universityBookToRemove != null)
+            {
+                _db.UniversityBooks.Remove(universityBookToRemove);
+                await _db.SaveChangesAsync();
+                return new UniversityBookModifiedDTO { IsError = false };
             }
             else
                 return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "This book does not exist in this university." };
@@ -254,6 +225,19 @@ namespace CRUDWebService.BusinessLayer.Services
                         AvailableFrom = universityBook.AvailableFrom,
                         UniversityId = universityBook.UniversityId,
                         IsError = false
+                    };
+                }
+                else
+                {
+                    yield return new UniversityBookDTO
+                    {
+                        ISBN = universityBook.BookISBN,
+                        IsAvailable = universityBook.IsAvailable,
+                        AvailableFrom = universityBook.AvailableFrom,
+                        Autorius = "Missing information",
+                        Metai = 0,
+                        Pavadinimas = "Missing information",
+                        UniversityId = universityBook.UniversityId
                     };
                 }
             }
