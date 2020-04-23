@@ -5,6 +5,6 @@ After cloning/downloading type:
 
 cd CRUDWebService
 
-docker build -t name .
+docker-compose up -d --build
 
-docker run -p 8080:80 name
+localhost:5000/swagger
