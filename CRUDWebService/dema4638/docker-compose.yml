@@ -3,6 +3,6 @@ services:
   web:
     build: .
     ports:
-      - 4777:80
+      - 80:80
     networks:
       - ws_bridge

@@ -99,7 +99,7 @@ namespace CRUDWebService.Controllers
         {
             var universityBook = await _service.GetUniversityBookByISBN(universityId, bookISBN);
             if (universityBook.IsError)
-                return new JsonResult(new ReturnMessage { MessageContent = universityBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.ServiceUnavailable };
+                return new JsonResult(new ReturnMessage { MessageContent = universityBook.ErrorMessage }) { StatusCode = (int)universityBook.StatusCode };
             else
             {
                 return Ok(new UniversityBookInformationViewModel { Author = universityBook.Autorius, Title = universityBook.Pavadinimas, ISBN = universityBook.ISBN, Year = universityBook.Metai, AvailableFrom = universityBook.AvailableFrom, IsAvailable = universityBook.IsAvailable  });
@@ -112,7 +112,7 @@ namespace CRUDWebService.Controllers
         {
             var addedBook = await _service.AddBookToUniversityAsync(universityId, bookISBN);
             if (addedBook.IsError)
-                return new JsonResult(new ReturnMessage { MessageContent = addedBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
+                return new JsonResult(new ReturnMessage { MessageContent = addedBook.ErrorMessage }) { StatusCode = (int)addedBook.StatusCode };
             else
             {
                 var model = new UniversityBookViewModel { BookISBN = addedBook.BookISBN, UniversityId = addedBook.UniversityId, IsAvailable = addedBook.IsAvailable, AvailableFrom = addedBook.AvailableFrom };
@@ -126,7 +126,7 @@ namespace CRUDWebService.Controllers
         {
             var editedBook = await _service.EditUniversityBookAsync(new UniversityBookModifiedDTO { BookISBN = universityBookEdited.BookISBN, AvailableFrom = universityBookEdited.AvailableFrom, IsAvailable = universityBookEdited.IsAvailable, UniversityId = universityId });
             if (editedBook.IsError)
-                return new JsonResult(new ReturnMessage { MessageContent = editedBook.ErrorMessage }) { StatusCode = (int)HttpStatusCode.BadRequest };
+                return new JsonResult(new ReturnMessage { MessageContent = editedBook.ErrorMessage }) { StatusCode = (int)editedBook.StatusCode };
             else
             {
                 return Ok(new UniversityBookViewModel { BookISBN = editedBook.BookISBN, UniversityId = editedBook.UniversityId, IsAvailable = editedBook.IsAvailable, AvailableFrom = editedBook.AvailableFrom });

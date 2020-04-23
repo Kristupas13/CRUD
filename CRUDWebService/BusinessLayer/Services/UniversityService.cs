@@ -18,7 +18,7 @@ namespace CRUDWebService.BusinessLayer.Services
     public class UniversityService : IUniversityService
     {
         private readonly UniversityContext _db;
-        private StringBuilder BaseBookServiceUri = new StringBuilder(@"http://external:82/");
+        private StringBuilder BaseBookServiceUri = new StringBuilder(@"http://external:80/");
 
 
         public UniversityService(UniversityContext db)
@@ -121,21 +121,31 @@ namespace CRUDWebService.BusinessLayer.Services
                 using (var client = new HttpClient())
                 {
                     var requestURI = BaseBookServiceUri.Append("books/" + bookISBN).ToString();
-                    HttpResponseMessage response;
-                        try
-                        {
-                        response = await client.GetAsync(requestURI);
-                        }
-                        catch (Exception e)
-                        {
-                        return new UniversityBookDTO { IsError = true, ErrorMessage = $"Unexpected error has occured. Library service could not be found or is not running. {e.Message}" };
-                    }
-                    // var response = await GetResponseAsync(requestURI);
+                     var response = await GetResponseAsync(requestURI);
 
                     if (response == null)
-                        return new UniversityBookDTO { IsError = true, ErrorMessage = $"Unexpected error has occured. Library service could not be found or is not running. {requestURI}" };
+                    {
+                        return new UniversityBookDTO 
+                        { 
+                            IsError = true, 
+                            ErrorMessage = $"Unexpected error has occured. Library service could not be found or is not running.", 
+                            StatusCode = System.Net.HttpStatusCode.ServiceUnavailable
+                        };
+                    }
                     if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                        return new UniversityBookDTO { IsError = true, ErrorMessage = "Error: Book is missing from book database." };
+                    {
+                        return new UniversityBookDTO
+                        {
+                            UniversityId = universityId,
+                            Autorius = "Missing information",
+                            ISBN = "Missing information",
+                            IsAvailable = universityBook.IsAvailable,
+                            Metai = 0,
+                            Pavadinimas = "Missing information",
+                            AvailableFrom = universityBook.AvailableFrom,
+                            IsError = false
+                        };
+                    }
 
                     var convertedContent = JsonConvert.DeserializeObject<RootBookObject>(await response.Content.ReadAsStringAsync());
 
@@ -153,7 +163,7 @@ namespace CRUDWebService.BusinessLayer.Services
                 }
             }
             else
-                return new UniversityBookDTO { IsError = true, ErrorMessage = "Book does not exist in this university." };
+                return new UniversityBookDTO { IsError = true, ErrorMessage = "Book does not exist in this university.", StatusCode = System.Net.HttpStatusCode.BadRequest };
         }
 
         public async Task<UniversityBookModifiedDTO> AddBookToUniversityAsync(int universityId, string bookISBN)
@@ -165,7 +175,7 @@ namespace CRUDWebService.BusinessLayer.Services
                 return new UniversityBookModifiedDTO { IsError = false, UniversityId = universityId, BookISBN = bookISBN, AvailableFrom = DateTime.UtcNow, IsAvailable = true };
             }
             else
-                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Book already exists in this university." };
+                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Book already exists in this university.", StatusCode = System.Net.HttpStatusCode.BadRequest };
 
         }
 
@@ -183,7 +193,7 @@ namespace CRUDWebService.BusinessLayer.Services
                 return new UniversityBookModifiedDTO { IsError = false, UniversityId = universityBookEdited.UniversityId, BookISBN = universityBookEdited.BookISBN, IsAvailable = bookToUpdate.IsAvailable, AvailableFrom = bookToUpdate.AvailableFrom };
             }
             else
-                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "This book does not exist in this university." };
+                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "This book does not exist in this university.", StatusCode = System.Net.HttpStatusCode.BadRequest };
 
         }
 
@@ -198,7 +208,7 @@ namespace CRUDWebService.BusinessLayer.Services
                 return new UniversityBookModifiedDTO { IsError = false };
             }
             else
-                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "This book does not exist in this university." };
+                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "This book does not exist in this university.", StatusCode = System.Net.HttpStatusCode.BadRequest };
         }
 
         private async Task<HttpResponseMessage> GetResponseAsync(string requestURI)
