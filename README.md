@@ -8,3 +8,5 @@ cd CRUDWebService
 docker-compose up -d --build
 
 localhost:5000/swagger
+
+(for book service use localhost:82/books)

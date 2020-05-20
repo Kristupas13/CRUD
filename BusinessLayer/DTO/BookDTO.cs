@@ -1,4 +1,5 @@
 ﻿using CRUDWebService.BusinessLayer.Base.DTO;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 
@@ -16,6 +17,7 @@ namespace CRUDWebService.BusinessLayer.DTO
 
     public class BookDTO : ErrorDTO
     {
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public string ISBN { get; set; }
         public string Pavadinimas { get; set; }
         public string Autorius { get; set; }

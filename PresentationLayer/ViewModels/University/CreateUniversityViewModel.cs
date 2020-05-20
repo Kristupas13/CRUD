@@ -1,14 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace CRUDWebService.PresentationLayer.ViewModels
 {
-    public class EditUniversityViewModel
+    public class CreateUniversityViewModel
     {
         public string Name { get; set; }
-
         public string Address { get; set; }
+
+        public IList<BookViewModel> Books { get; set; }
     }
 }

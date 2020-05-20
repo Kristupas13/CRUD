@@ -16,4 +16,3 @@ services:
             - ws_bridge
 networks:
   ws_bridge:
-    external: true
