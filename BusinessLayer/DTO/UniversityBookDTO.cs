@@ -1,7 +1,14 @@
-﻿using System;
+﻿using CRUDWebService.BusinessLayer.DTO.University;
+using System;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace CRUDWebService.BusinessLayer.DTO
 {
+    public class UniversityBookDTO : UniversityDTO
+    {
+        public IList<UniversityBookInformation> Books { get; set; }
+    }
 
     public class UniversityBookInformation
     {
@@ -11,12 +18,9 @@ namespace CRUDWebService.BusinessLayer.DTO
         public string Pavadinimas { get; set; }
         public string Autorius { get; set; }
         public int Metai { get; set; }
-    }
 
-    public class UniversityBookDTO : BookDTO
-    {
-        public int UniversityId { get; set; }
-        public bool IsAvailable { get; set; }
-        public DateTime AvailableFrom { get; set; }
+        [JsonIgnore]
+        public string ErrorMessage { get; set; }
+
     }
 }

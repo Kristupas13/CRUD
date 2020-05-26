@@ -7,6 +7,6 @@ namespace CRUDWebService.BusinessLayer.DTO.University
         public string Name { get; set; }
         public string Address { get; set; }
 
-        public IList<UniversityBookDTO> Books { get; set; }
+        public IList<UniversityBookInformation> Books { get; set; }
     }
 }

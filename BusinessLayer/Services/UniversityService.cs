@@ -1,12 +1,11 @@
-﻿using CRUDWebService.BusinessLayer.Base.DTO;
-using CRUDWebService.BusinessLayer.Contracts;
+﻿using CRUDWebService.BusinessLayer.Contracts;
 using CRUDWebService.BusinessLayer.DTO;
 using CRUDWebService.BusinessLayer.DTO.University;
 using CRUDWebService.DataLayer.Context;
 using CRUDWebService.DataLayer.Entities;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -18,7 +17,7 @@ namespace CRUDWebService.BusinessLayer.Services
     public class UniversityService : IUniversityService
     {
         private readonly UniversityContext _db;
-   //     private StringBuilder BaseBookServiceUri = new StringBuilder(@"http://external:80/");
+        //     private StringBuilder BaseBookServiceUri = new StringBuilder(@"http://external:80/");
         private StringBuilder BaseBookServiceUri = new StringBuilder(@"http://localhost:4777/");
 
 
@@ -29,112 +28,59 @@ namespace CRUDWebService.BusinessLayer.Services
 
         #region FirstTask
 
-        public async Task<UniversityDTO> AddAsync(AddUnivesityDTO addUnivesity)
+        public async Task<UniversityBookDTO> AddAsync(AddUnivesityDTO addUnivesity)
         {
             try
             {
-                var model = _db.Universities.Add(new University
-                {
-                    Address = addUnivesity.Address,
-                    Name = addUnivesity.Name
-                }).Entity;
-                await _db.SaveChangesAsync();
+                var newUniversityEntity = await AddNewUniversityEntityAsync(addUnivesity.Address, addUnivesity.Name).ConfigureAwait(false);
 
-                IList<UniversityBookInformation> books = new List<UniversityBookInformation>();
+                var bookDto = new UniversityBookDTO
+                {
+                    UniversityId = newUniversityEntity.UniversityId,
+                    Address = addUnivesity.Address,
+                    Name = addUnivesity.Name,
+                    Books = new List<UniversityBookInformation>()
+                };
 
                 foreach (var book in addUnivesity.Books)
                 {
-                    using (HttpClient client = new HttpClient())
-                    {
-                        await AddBookToLibraryService(book);
+                    await AddNewUniversityBook(newUniversityEntity.UniversityId, book.ISBN, book.IsAvailable, book.AvailableFrom);
 
-                        var requestURI = BaseBookServiceUri.ToString() + "books/" + book.ISBN;
-                        var response = await GetResponseAsync(requestURI);
-                        var bookInformation = JsonConvert.DeserializeObject<RootBookObject>(await response.Content.ReadAsStringAsync())?.Knyga;
+                    var bookFromExternalService = await GetBookInformationFromExternalServiceAsync(book.ISBN);
+                    if (bookFromExternalService == null)
+                        await AddBookToExternalServiceAsync(bookFromExternalService);
 
-                        var addedBook = _db.UniversityBooks
-                                    .Add(new UniversityBook
-                                    {
-                                        UniversityId = model.UniversityId,
-                                        BookISBN = book.ISBN,
-                                        AvailableFrom = book.AvailableFrom,
-                                        IsAvailable = book.IsAvailable,
-                                    });
-
-                        await _db.SaveChangesAsync();
-                        books.Add(new UniversityBookInformation
-                        {
-                            Autorius = bookInformation?.Autorius ?? "Missing information",
-                            ISBN = book.ISBN,
-                            AvailableFrom = book.AvailableFrom,
-                            IsAvailable = book.IsAvailable,
-                            Metai = bookInformation?.Metai ?? 0,
-                            Pavadinimas = bookInformation?.Pavadinimas ?? "Missing information"
-                        });
-                    }
+                    bookDto.Books.Add(ComposeBookInformation(bookFromExternalService, book.AvailableFrom, book.IsAvailable));
                 }
 
-                return new UniversityDTO { Address = addUnivesity.Address, Name = addUnivesity.Name, UniversityId = model.UniversityId, UniversityBooks = books.Select(p => new UniversityBookInformation { AvailableFrom = p.AvailableFrom, IsAvailable = p.IsAvailable, Autorius = p.Autorius, Pavadinimas = p.Pavadinimas, Metai = p.Metai, ISBN = p.ISBN }).ToList() };
-
+                return bookDto;
             }
-            catch(Exception e)
+            catch
             {
                 return null;
             }
         }
 
-        public async Task<UniversityDTO> EditAsync(EditUniversityDTO editUniversity)
+        public async Task<EditUniversityDTO> EditAsync(EditUniversityDTO editUniversity)
         {
-            var universityEntity = _db.Universities.FirstOrDefault(p => p.UniversityId == editUniversity.UniversityId);
-            universityEntity.Name = editUniversity.Name;
-            universityEntity.Address = editUniversity.Address;
-            await _db.SaveChangesAsync();
+            var universityEntity = await EditUniversityEntityAsync(editUniversity.UniversityId, editUniversity.Address, editUniversity.Name);
+            var externalServiceBooksInformation = await GetBooksInformationFromExternalServiceAsync();
+            await RemoveAllUniversityBooks(editUniversity.UniversityId);
 
-            IList<BookDTO> booksInformation = new List<BookDTO>();
-            var universityBookEntities = _db.UniversityBooks.Where(p => p.UniversityId == editUniversity.UniversityId).ToList();
-            RemoveAllUniversityBooks(editUniversity.UniversityId);
             try
             {
-                IList<UniversityDTO> listOfUniversitiesWithBooks = new List<UniversityDTO>();
-
-                using (var client = new HttpClient())
-                {
-                    var requestURI = BaseBookServiceUri.ToString() + "books";
-                    var response = await GetResponseAsync(requestURI);
-                    if (response != null)
-                        booksInformation = JsonConvert.DeserializeObject<RootBookList>(await response.Content.ReadAsStringAsync())?.Knygos;
-                }
 
                 foreach (var booksToEdit in editUniversity.Books)
                 {
-                    var universityBookEntity = universityBookEntities.FirstOrDefault(p => p.BookISBN == booksToEdit.ISBN);
-                    if (universityBookEntity != null)
-                    {
-                        universityBookEntity.AvailableFrom = booksToEdit.AvailableFrom;
-                        universityBookEntity.IsAvailable = booksToEdit.IsAvailable;
-                        await EditLibraryBookService(new BookDTO { Pavadinimas = booksToEdit.Pavadinimas, Metai = booksToEdit.Metai, ISBN = booksToEdit.ISBN, Autorius = booksToEdit.Autorius });
+                    await AddNewUniversityBook(universityEntity.UniversityId, booksToEdit.ISBN, booksToEdit.IsAvailable, booksToEdit.AvailableFrom);
 
-                    }
+                    if (externalServiceBooksInformation.Any(p => p.ISBN == booksToEdit.ISBN))
+                        await EditExternalServiceBookAsync(new BookDTO { Autorius = booksToEdit.Autorius, ISBN = booksToEdit.ISBN, Metai = booksToEdit.Metai, Pavadinimas = booksToEdit.Pavadinimas });
                     else
-                    {
-                        // create
-                        var newUniversityBook = new UniversityBook
-                        {
-                            UniversityId = editUniversity.UniversityId,
-                            AvailableFrom = booksToEdit.AvailableFrom,
-                            BookISBN = booksToEdit.ISBN,
-                            IsAvailable = booksToEdit.IsAvailable
-                        };
-                        await AddBookToLibraryService(new BookDTO { Autorius = booksToEdit.Autorius, ISBN = booksToEdit.ISBN, Metai = booksToEdit.Metai, Pavadinimas = booksToEdit.Pavadinimas });
-
-                        _db.UniversityBooks.Add(newUniversityBook);
-                    }
-                    await _db.SaveChangesAsync();
+                        await AddBookToExternalServiceAsync(new BookDTO { Autorius = booksToEdit.Autorius, ISBN = booksToEdit.ISBN, Metai = booksToEdit.Metai, Pavadinimas = booksToEdit.Pavadinimas });
                 }
 
-                var books = await Get(editUniversity.UniversityId);
-
-                return books;
+                return editUniversity;
             }
             catch
             {
@@ -142,39 +88,28 @@ namespace CRUDWebService.BusinessLayer.Services
             }
         }
 
-        private void RemoveAllUniversityBooks(int universityId)
+        public async Task<UniversityBookDTO> Get(int id)
         {
-            var universityBooks = _db.UniversityBooks.Where(p => p.UniversityId == universityId).ToList();
-            _db.UniversityBooks.RemoveRange(universityBooks);
-            _db.SaveChanges();
-        }
-
-        public async Task<UniversityDTO> Get(int id)
-        {
-            UniversityDTO universityWithBooks = new UniversityDTO() { UniversityBooks = new List<UniversityBookInformation>() };
             try
             {
-                var entity = _db.Universities.Find(id);
-                var booksInformation = new BookDTO();
-                var universityBooks = _db.UniversityBooks.Where(p => p.UniversityId == entity.UniversityId).ToList();
+                var universityEntity = _db.Universities.Find(id);
+                var universityBookEntities = _db.UniversityBooks.Where(p => p.UniversityId == id).ToList();
 
-                foreach (var book in universityBooks)
+                var universityBookDto = new UniversityBookDTO
                 {
-                    using (var client = new HttpClient())
-                    {
-                        var requestURI = BaseBookServiceUri.ToString() + "books/" + book.BookISBN;
-                        var response = await GetResponseAsync(requestURI);
-                        if (response != null)
-                            booksInformation = JsonConvert.DeserializeObject<RootBookObject>(await response.Content.ReadAsStringAsync())?.Knyga;
-                    }
+                    UniversityId = universityEntity.UniversityId,
+                    Address = universityEntity.Address,
+                    Name = universityEntity.Name,
+                    Books = new List<UniversityBookInformation>()
+                };
 
-                    universityWithBooks.Address = entity.Address;
-                    universityWithBooks.Name = entity.Name;
-                    universityWithBooks.UniversityId = entity.UniversityId;
-                    universityWithBooks.UniversityBooks.Add(GetBookInformation(booksInformation, book));
+                foreach (var book in universityBookEntities)
+                {
+                    var bookDto = await GetBookInformationFromExternalServiceAsync(book.BookISBN);
+                    universityBookDto.Books.Add(ComposeBookInformation(bookDto, book.AvailableFrom, book.IsAvailable));
                 }
 
-                return universityWithBooks;
+                return universityBookDto;
             }
             catch
             {
@@ -182,39 +117,48 @@ namespace CRUDWebService.BusinessLayer.Services
             }
         }
 
-        public async Task<IEnumerable<UniversityDTO>> GetAll()
+        public async Task<IEnumerable<UniversityBookDTO>> GetAll()
         {
-            IList<UniversityDTO> listOfUniversitiesWithBooks = new List<UniversityDTO>();
-            IList<BookDTO> booksInformation = new List<BookDTO>();
-
-            using (var client = new HttpClient())
+            try
             {
-                var requestURI = BaseBookServiceUri.ToString() + "books";
-                var response = await GetResponseAsync(requestURI);
-                if (response != null)
-                    booksInformation = JsonConvert.DeserializeObject<RootBookList>(await response.Content.ReadAsStringAsync())?.Knygos;
-            }
+                var bookEntities = _db.Universities.ToList();
+                var universityBookGroupedEntities = _db.UniversityBooks.GroupBy(p => p.UniversityId).ToList();
 
-            var universities = _db.Universities.ToList();
-            foreach (var university in universities)
-            {
-                var universityBooks = _db.UniversityBooks.Where(p => p.UniversityId == university.UniversityId).ToList();
-                var universityInformation = new UniversityDTO { UniversityId = university.UniversityId, Address = university.Address, Name = university.Name, UniversityBooks = new List<UniversityBookInformation>() };
+                var universityBooksDto = new List<UniversityBookDTO>();
 
-                foreach (var book in universityBooks)
+                foreach (var book in bookEntities)
                 {
-                    var bookInformation = booksInformation?.FirstOrDefault(p => p.ISBN == book.BookISBN);
-                    universityInformation.UniversityBooks.Add(GetBookInformation(bookInformation, book));
+                    var universityBooks = universityBookGroupedEntities.Where(p => p.Key == book.UniversityId).Select(p => p.ToList()).SingleOrDefault();
+
+                    var universityWithBookInformation = new UniversityBookDTO
+                    {
+                        UniversityId = book.UniversityId,
+                        Address = book.Address,
+                        Name = book.Name,
+                        Books = new List<UniversityBookInformation>()
+                    };
+
+                    foreach (var universityBook in universityBooks)
+                    {
+                        var bookDto = await GetBookInformationFromExternalServiceAsync(universityBook.BookISBN);
+                        universityWithBookInformation.Books.Add(ComposeBookInformation(bookDto, universityBook.AvailableFrom, universityBook.IsAvailable));
+                    }
+
+                    universityBooksDto.Add(universityWithBookInformation);
                 }
-                listOfUniversitiesWithBooks.Add(universityInformation);
+
+                return universityBooksDto;
             }
-            return listOfUniversitiesWithBooks;
+            catch
+            {
+                return null;
+            }
         }
 
-        public async Task<int> RemoveAsync(RemoveUniversityDTO removeUniversity)
+        public async Task<int> RemoveAsync(int universityId)
         {
-            var university = _db.Universities.SingleOrDefault(p => p.UniversityId == removeUniversity.UniversityId);
-            var universityBooks = _db.UniversityBooks.Where(p => p.UniversityId == removeUniversity.UniversityId).ToList();
+            var university = _db.Universities.SingleOrDefault(p => p.UniversityId == universityId);
+            var universityBooks = _db.UniversityBooks.Where(p => p.UniversityId == universityId).ToList();
 
 
             if (university == null)
@@ -227,177 +171,6 @@ namespace CRUDWebService.BusinessLayer.Services
             return 1;
         }
         #endregion
-
-
-        public async Task<IEnumerable<UniversityBookDTO>> GetUniversityBooks(int universityId)
-        {
-            var universityBooks = _db.UniversityBooks.Where(p => p.UniversityId == universityId).ToList();
-            using (var client = new HttpClient())
-            {
-                var requestURI = BaseBookServiceUri.ToString() + "books";
-                var response = await GetResponseAsync(requestURI);
-                if (response == null)
-                    return null;
-
-                var convertedContent = JsonConvert.DeserializeObject<RootBookList>(await response.Content.ReadAsStringAsync());
-                return MergeUniversityWithBookInformation(universityBooks, convertedContent.Knygos);
-            }
-        }
-
-        public async Task<UniversityBookDTO> GetUniversityBookByISBN(int universityId, string bookISBN)
-        {
-            var universityBook = _db.UniversityBooks.Where(p => p.UniversityId == universityId && p.BookISBN == bookISBN).FirstOrDefault();
-            if (universityBook != null)
-            {
-                using (var client = new HttpClient())
-                {
-                    var requestURI = BaseBookServiceUri.ToString() + "books/" + bookISBN;
-                    var response = await GetResponseAsync(requestURI);
-
-                    if (response == null)
-                    {
-                        return new UniversityBookDTO
-                        {
-                            IsError = true,
-                            ErrorMessage = $"Unexpected error has occured. Library service could not be found or is not running.",
-                            StatusCode = System.Net.HttpStatusCode.ServiceUnavailable
-                        };
-                    }
-                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    {
-                        return new UniversityBookDTO
-                        {
-                            UniversityId = universityId,
-                            Autorius = "Missing information",
-                            ISBN = "Missing information",
-                            IsAvailable = universityBook.IsAvailable,
-                            Metai = 0,
-                            Pavadinimas = "Missing information",
-                            AvailableFrom = universityBook.AvailableFrom,
-                            IsError = false
-                        };
-                    }
-
-                    var convertedContent = JsonConvert.DeserializeObject<RootBookObject>(await response.Content.ReadAsStringAsync());
-
-                    return new UniversityBookDTO
-                    {
-                        UniversityId = universityId,
-                        Autorius = convertedContent.Knyga.Autorius,
-                        ISBN = convertedContent.Knyga.ISBN,
-                        IsAvailable = universityBook.IsAvailable,
-                        Metai = convertedContent.Knyga.Metai,
-                        Pavadinimas = convertedContent.Knyga.Pavadinimas,
-                        AvailableFrom = universityBook.AvailableFrom,
-                        IsError = false
-                    };
-                }
-            }
-            else
-                return new UniversityBookDTO { IsError = true, ErrorMessage = "Book does not exist in this university.", StatusCode = System.Net.HttpStatusCode.BadRequest };
-        }
-
-        public async Task<UniversityBookModifiedDTO> AddBookToUniversityAsync(UniversityBookDTO universityBook)
-        {
-            if (!_db.UniversityBooks.Any(p => p.UniversityId == universityBook.UniversityId && p.BookISBN == universityBook.ISBN))
-            {
-                _db.UniversityBooks.Add(new UniversityBook { UniversityId = universityBook.UniversityId, BookISBN = universityBook.ISBN, AvailableFrom = DateTime.UtcNow, IsAvailable = true });
-                await _db.SaveChangesAsync();
-
-                await AddBookToLibraryService(new BookDTO { Autorius = universityBook.Autorius, ISBN = universityBook.ISBN, Metai = universityBook.Metai, Pavadinimas = universityBook.Pavadinimas });
-                using (var client = new HttpClient())
-                {
-                    var requestURI = BaseBookServiceUri.ToString() + "books/" + universityBook.ISBN;
-                    var response = await GetResponseAsync(requestURI);
-                    if (response == null)
-                    {
-                        return new UniversityBookModifiedDTO
-                        {
-                            IsError = true,
-                            ErrorMessage = $"Unexpected error has occured. Library service could not be found or is not running.",
-                            StatusCode = System.Net.HttpStatusCode.ServiceUnavailable
-                        };
-                    }
-                    var bookInformation = JsonConvert.DeserializeObject<RootBookObject>(await response.Content.ReadAsStringAsync())?.Knyga;
-                    return new UniversityBookModifiedDTO
-                    { 
-                        IsError = false, 
-                        UniversityId = universityBook.UniversityId, 
-                        BookISBN = universityBook.ISBN, 
-                        AvailableFrom = DateTime.UtcNow, 
-                        IsAvailable = true,
-                        Autorius = bookInformation?.Autorius ?? "Missing information",
-                        Metai = bookInformation?.Metai ?? 0,
-                        Pavadinimas = bookInformation?.Pavadinimas ?? "Missing information"
-                    };
-
-                }
-            }
-            else
-                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "Book already exists in this university.", StatusCode = System.Net.HttpStatusCode.BadRequest };
-
-        }
-
-        public async Task<UniversityBookModifiedDTO> EditUniversityBookAsync(UniversityBookModifiedDTO universityBookEdited)
-        {
-            var bookToUpdate = _db.UniversityBooks.Where(p => p.UniversityId == universityBookEdited.UniversityId && p.BookISBN == universityBookEdited.BookISBN).FirstOrDefault();
-
-            if (bookToUpdate != null)
-            {
-                bookToUpdate.AvailableFrom = universityBookEdited.AvailableFrom;
-                bookToUpdate.IsAvailable = universityBookEdited.IsAvailable;
-
-                _db.UniversityBooks.Update(bookToUpdate);
-                await _db.SaveChangesAsync();
-
-                using (var client = new HttpClient())
-                {
-                    var requestURI = BaseBookServiceUri.ToString() + "books/" + universityBookEdited.BookISBN;
-                    var response = await GetResponseAsync(requestURI);
-                    if (response == null)
-                    {
-                        return new UniversityBookModifiedDTO
-                        {
-                            IsError = true,
-                            ErrorMessage = $"Unexpected error has occured. Library service could not be found or is not running.",
-                            StatusCode = System.Net.HttpStatusCode.ServiceUnavailable
-                        };
-                    }
-                    var bookInformation = JsonConvert.DeserializeObject<RootBookObject>(await response.Content.ReadAsStringAsync())?.Knyga;
-                    await EditLibraryBookService(new BookDTO { Pavadinimas = universityBookEdited.Pavadinimas, Metai = universityBookEdited.Metai, Autorius = universityBookEdited.Autorius, ISBN = universityBookEdited.BookISBN });
-
-
-                    return new UniversityBookModifiedDTO
-                    {
-                        Autorius = bookInformation?.Autorius ?? "Missing information",
-                        BookISBN = universityBookEdited.BookISBN,
-                        AvailableFrom = universityBookEdited.AvailableFrom,
-                        IsAvailable = universityBookEdited.IsAvailable,
-                        Metai = bookInformation?.Metai ?? 0,
-                        Pavadinimas = bookInformation?.Pavadinimas ?? "Missing information",
-                        UniversityId = universityBookEdited.UniversityId
-                    };
-
-                }
-            }
-            else
-                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "This book does not exist in this university.", StatusCode = System.Net.HttpStatusCode.BadRequest };
-
-        }
-
-        public async Task<UniversityBookModifiedDTO> RemoveUniversityBookAsync(int universityId, string bookISBN)
-        {
-            var universityBookToRemove = _db.UniversityBooks.Where(p => p.UniversityId == universityId && p.BookISBN == bookISBN).FirstOrDefault();
-
-            if (universityBookToRemove != null)
-            {
-                _db.UniversityBooks.Remove(universityBookToRemove);
-                await _db.SaveChangesAsync();
-                return new UniversityBookModifiedDTO { IsError = false };
-            }
-            else
-                return new UniversityBookModifiedDTO { IsError = true, ErrorMessage = "This book does not exist in this university.", StatusCode = System.Net.HttpStatusCode.BadRequest };
-        }
 
         private async Task<HttpResponseMessage> GetResponseAsync(string requestURI)
         {
@@ -414,56 +187,7 @@ namespace CRUDWebService.BusinessLayer.Services
             }
         }
 
-        private IEnumerable<UniversityBookDTO> MergeUniversityWithBookInformation(List<UniversityBook> universityBooks, List<BookDTO> booksInformations)
-        {
-            foreach (var universityBook in universityBooks)
-            {
-                var bookInfo = booksInformations.FirstOrDefault(p => p.ISBN == universityBook.BookISBN);
-
-                if (bookInfo != null)
-                {
-                    yield return new UniversityBookDTO
-                    {
-                        ISBN = bookInfo.ISBN,
-                        Autorius = bookInfo.Autorius,
-                        IsAvailable = universityBook.IsAvailable,
-                        Metai = bookInfo.Metai,
-                        Pavadinimas = bookInfo.Pavadinimas,
-                        AvailableFrom = universityBook.AvailableFrom,
-                        UniversityId = universityBook.UniversityId,
-                        IsError = false
-                    };
-                }
-                else
-                {
-                    yield return new UniversityBookDTO
-                    {
-                        ISBN = universityBook.BookISBN,
-                        IsAvailable = universityBook.IsAvailable,
-                        AvailableFrom = universityBook.AvailableFrom,
-                        Autorius = "Missing information",
-                        Metai = 0,
-                        Pavadinimas = "Missing information",
-                        UniversityId = universityBook.UniversityId
-                    };
-                }
-            }
-        }
-
-        private UniversityBookInformation GetBookInformation(BookDTO bookInformation, UniversityBook book)
-        {
-            return new UniversityBookInformation
-            {
-                Autorius = bookInformation?.Autorius ?? "Missing information",
-                AvailableFrom = book.AvailableFrom,
-                IsAvailable = book.IsAvailable,
-                ISBN = book.BookISBN,
-                Metai = bookInformation?.Metai ?? 0,
-                Pavadinimas = bookInformation?.Pavadinimas ?? "Missing information",
-            };
-        }
-
-        private async Task<HttpResponseMessage> AddBookToLibraryService(BookDTO bookDto)
+        private async Task<HttpResponseMessage> AddBookToExternalServiceAsync(BookDTO bookDto)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -482,7 +206,7 @@ namespace CRUDWebService.BusinessLayer.Services
             }
         }
 
-        private async Task<HttpResponseMessage> EditLibraryBookService(BookDTO bookDto)
+        private async Task<HttpResponseMessage> EditExternalServiceBookAsync(BookDTO bookDto)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -498,6 +222,87 @@ namespace CRUDWebService.BusinessLayer.Services
                 var postResponse = await client.PutAsync(postRequestURI, data);
                 return postResponse;
             }
+        }
+
+        private async Task<University> AddNewUniversityEntityAsync(string address, string name)
+        {
+            var model = _db.Universities.Add(new University
+            {
+                Address = address,
+                Name = name
+            }).Entity;
+
+            await _db.SaveChangesAsync();
+
+            return model;
+        }
+
+        private async Task<University> EditUniversityEntityAsync(int universityId, string address, string name)
+        {
+            var entity = _db.Universities.Find(universityId);
+            entity.Name = name;
+            entity.Address = address;
+            _db.Universities.Update(entity);
+            await _db.SaveChangesAsync();
+
+            return entity;
+        }
+
+        private async Task<UniversityBook> AddNewUniversityBook(int universityId, string isbn, bool isAvailable, DateTime availableFrom)
+        {
+            var model = _db.UniversityBooks.Add(new UniversityBook
+            {
+                UniversityId = universityId,
+                BookISBN = isbn,
+                IsAvailable = isAvailable,
+                AvailableFrom = availableFrom
+            }).Entity;
+
+            await _db.SaveChangesAsync();
+
+            return model;
+        }
+
+        private async Task RemoveAllUniversityBooks(int universityId)
+        {
+            var universityBooks = _db.UniversityBooks.Where(p => p.UniversityId == universityId).ToList();
+            _db.UniversityBooks.RemoveRange(universityBooks);
+            await _db.SaveChangesAsync();
+        }
+
+        private async Task<BookDTO> GetBookInformationFromExternalServiceAsync(string isbn)
+        {
+            using (HttpClient client = new HttpClient())
+            {
+                var requestURI = BaseBookServiceUri.ToString() + "books/" + isbn;
+                var response = await GetResponseAsync(requestURI);
+                var bookInformation = JsonConvert.DeserializeObject<RootBookObject>(await response.Content.ReadAsStringAsync())?.Knyga;
+                return bookInformation;
+            }
+        }
+
+        private async Task<List<BookDTO>> GetBooksInformationFromExternalServiceAsync()
+        {
+            using (HttpClient client = new HttpClient())
+            {
+                var requestURI = BaseBookServiceUri.ToString() + "books";
+                var response = await GetResponseAsync(requestURI);
+                var booksInformation = JsonConvert.DeserializeObject<RootBookList>(await response.Content.ReadAsStringAsync())?.Knygos;
+                return booksInformation;
+            }
+        }
+
+        private UniversityBookInformation ComposeBookInformation(BookDTO dto, DateTime availableFrom, bool isAvailable)
+        {
+            return new UniversityBookInformation
+            {
+                Autorius = dto?.Autorius ?? "Missing information",
+                ISBN = dto?.ISBN,
+                AvailableFrom = availableFrom,
+                IsAvailable = isAvailable,
+                Metai = dto?.Metai ?? 0,
+                Pavadinimas = dto?.Pavadinimas ?? "Missing information"
+            };
         }
     }
 }

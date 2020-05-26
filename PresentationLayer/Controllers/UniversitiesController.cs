@@ -26,10 +26,9 @@ namespace CRUDWebService.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create(CreateUniversityViewModel viewModel)
+        public async Task<IActionResult> Create(AddUnivesityDTO universityModel)
         {
-            var universityDto = new AddUnivesityDTO { Name = viewModel.Name, Address = viewModel.Address, Books = viewModel.Books.Select(p => new UniversityBookDTO { ISBN = p.ISBN, IsAvailable = p.IsAvailable, AvailableFrom = p.AvailableFrom, Autorius = p.Autorius, Pavadinimas = p.Pavadinimas, Metai = p.Metai }).ToList()};
-            var model = await _service.AddAsync(universityDto);
+            var model = await _service.AddAsync(universityModel);
             if (model == null)
             {
                 return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error when creating an university" }) { StatusCode = (int)HttpStatusCode.BadRequest };
@@ -52,26 +51,26 @@ namespace CRUDWebService.Controllers
             {
                 return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error when fetching an university: University not found" }) { StatusCode = (int)HttpStatusCode.NotFound };
             }
-            return Ok(new UniversityViewModel { UniversityId = dto.UniversityId, Address = dto.Address, Name = dto.Name, Books = dto.UniversityBooks });
+            return Ok(dto);
         }
 
         [HttpPut]
         [Route("{id}")]
-        public async Task<IActionResult> Edit(EditUniversityViewModel viewModel, int id)
+        public async Task<IActionResult> Edit(EditUniversityDTO viewModel, int id)
         {
-            var model = await _service.EditAsync(new EditUniversityDTO { UniversityId = id, Name = viewModel.Name, Address = viewModel.Address, Books = viewModel.Books });
+            var model = await _service.EditAsync(viewModel);
             if (model == null)
             {
                 return new JsonResult(new ReturnMessage { MessageContent = "Unexpected error when editing an university: University not found" }) { StatusCode = (int)HttpStatusCode.NotFound };
             }
-            return Ok(new UniversityViewModel { UniversityId = model.UniversityId, Address = model.Address, Name = model.Name, Books = model.UniversityBooks });
+            return Ok(model);
         }
 
         [HttpDelete]
         [Route("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var status = await _service.RemoveAsync(new RemoveUniversityDTO { UniversityId = id });
+            var status = await _service.RemoveAsync(id);
 
             if (status != -1)
                 return new JsonResult(new ReturnMessage { MessageContent = "University has been deleted" }) { StatusCode = (int)HttpStatusCode.OK };
@@ -92,7 +91,7 @@ namespace CRUDWebService.Controllers
                 if (!universityBooks.Any())
                     return NoContent();
 
-                return Ok(universityBooks.Select(p => new UniversityBookInformationViewModel { Author = p.Autorius, Title = p.Pavadinimas, ISBN = p.ISBN, Year = p.Metai, IsAvailable = p.IsAvailable, AvailableFrom = p.AvailableFrom }));
+                return Ok(universityBooks);
             }
         }
 
@@ -105,34 +104,33 @@ namespace CRUDWebService.Controllers
                 return new JsonResult(new ReturnMessage { MessageContent = universityBook.ErrorMessage }) { StatusCode = (int)universityBook.StatusCode };
             else
             {
-                return Ok(new UniversityBookInformationViewModel { Author = universityBook.Autorius, Title = universityBook.Pavadinimas, ISBN = universityBook.ISBN, Year = universityBook.Metai, AvailableFrom = universityBook.AvailableFrom, IsAvailable = universityBook.IsAvailable  });
+                return Ok(universityBook);
             }
         }
 
         [HttpPost]
         [Route("{universityId}/books")]
-        public async Task<IActionResult> AddBookToUniversity(int universityId, BookViewModel bookViewModel)
+        public async Task<IActionResult> AddBookToUniversity(int universityId, UniversityBookDTO universityBookModel)
         {
-            var addedBook = await _service.AddBookToUniversityAsync(new UniversityBookDTO { UniversityId = universityId, ISBN = bookViewModel.ISBN, Autorius = bookViewModel.Autorius, Metai = bookViewModel.Metai, Pavadinimas = bookViewModel.Pavadinimas, AvailableFrom = bookViewModel.AvailableFrom, IsAvailable = bookViewModel.IsAvailable });
+            var addedBook = await _service.AddBookToUniversityAsync(universityBookModel);
             if (addedBook.IsError)
                 return new JsonResult(new ReturnMessage { MessageContent = addedBook.ErrorMessage }) { StatusCode = (int)addedBook.StatusCode };
             else
             {
-                var model = new UniversityBookViewModel { BookISBN = addedBook.BookISBN, UniversityId = addedBook.UniversityId, IsAvailable = addedBook.IsAvailable, AvailableFrom = addedBook.AvailableFrom, Autorius = addedBook.Autorius, Metai = addedBook.Metai, Pavadinimas = addedBook.Pavadinimas };
-                return Created($"http://localhost:8777/Universities/{model.UniversityId}/books/{model.BookISBN}", model);
+                return Created($"http://localhost:8777/Universities/{addedBook.UniversityId}/books/{addedBook.BookISBN}", addedBook);
             }
         }
 
         [HttpPut]
         [Route("{universityId}/books")]
-        public async Task<IActionResult> EditBookUniversity(UniversityModifiedViewModel universityBookEdited, int universityId)
+        public async Task<IActionResult> EditBookUniversity(UniversityBookModifiedDTO universityBookEdited, int universityId)
         {
-            var editedBook = await _service.EditUniversityBookAsync(new UniversityBookModifiedDTO { BookISBN = universityBookEdited.BookISBN, AvailableFrom = universityBookEdited.AvailableFrom, IsAvailable = universityBookEdited.IsAvailable, UniversityId = universityId, Autorius = universityBookEdited.Autorius, Metai = universityBookEdited.Metai, Pavadinimas = universityBookEdited.Pavadinimas });
+            var editedBook = await _service.EditUniversityBookAsync(universityBookEdited);
             if (editedBook.IsError)
                 return new JsonResult(new ReturnMessage { MessageContent = editedBook.ErrorMessage }) { StatusCode = (int)editedBook.StatusCode };
             else
             {
-                return Ok(new UniversityBookViewModel { BookISBN = editedBook.BookISBN, UniversityId = editedBook.UniversityId, IsAvailable = editedBook.IsAvailable, AvailableFrom = editedBook.AvailableFrom, Pavadinimas = editedBook.Pavadinimas, Metai = editedBook.Metai, Autorius = editedBook.Autorius  });
+                return Ok(editedBook);
             }
         }
 

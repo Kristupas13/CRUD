@@ -11,11 +11,11 @@ namespace CRUDWebService.BusinessLayer.Contracts
 {
     public interface IUniversityService
     {
-        Task<UniversityDTO> AddAsync(AddUnivesityDTO addUnivesity);
-        Task<IEnumerable<UniversityDTO>> GetAll();
-        Task<UniversityDTO> Get(int id);
-        Task<UniversityDTO> EditAsync(EditUniversityDTO addUnivesity);
-        Task<int> RemoveAsync(RemoveUniversityDTO addUnivesity);
+        Task<UniversityBookDTO> AddAsync(AddUnivesityDTO addUnivesity);
+        Task<IEnumerable<UniversityBookDTO>> GetAll();
+        Task<UniversityBookDTO> Get(int id);
+        Task<EditUniversityDTO> EditAsync(EditUniversityDTO addUnivesity);
+        Task<int> RemoveAsync(int universityId);
 
         Task<IEnumerable<UniversityBookDTO>> GetUniversityBooks(int universityId);
         Task<UniversityBookDTO> GetUniversityBookByISBN(int universityId, string bookISBN);
