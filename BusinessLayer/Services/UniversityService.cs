@@ -26,6 +26,11 @@ namespace CRUDWebService.BusinessLayer.Services
             _db = db;
         }
 
+        public string Ping()
+        {
+            return "Hello world";
+        }
+
         #region FirstTask
 
         public async Task<UniversityBookDTO> AddAsync(AddUnivesityDTO addUnivesity)
@@ -46,11 +51,20 @@ namespace CRUDWebService.BusinessLayer.Services
                 {
                     await AddNewUniversityBook(newUniversityEntity.UniversityId, book.ISBN, book.IsAvailable, book.AvailableFrom);
 
+                    var bookToCompose = new BookDTO();
+
                     var bookFromExternalService = await GetBookInformationFromExternalServiceAsync(book.ISBN);
                     if (bookFromExternalService == null)
-                        await AddBookToExternalServiceAsync(bookFromExternalService);
+                    {
+                        bookToCompose = new BookDTO { Autorius = book.Autorius, Metai = book.Metai, ISBN = book.ISBN, Pavadinimas = book.Pavadinimas };
+                        await AddBookToExternalServiceAsync(bookToCompose);
+                    }
+                    else
+                    {
+                        bookToCompose = bookFromExternalService;
+                    }
 
-                    bookDto.Books.Add(ComposeBookInformation(bookFromExternalService, book.AvailableFrom, book.IsAvailable));
+                    bookDto.Books.Add(ComposeBookInformation(bookToCompose, book.AvailableFrom, book.IsAvailable));
                 }
 
                 return bookDto;
@@ -93,6 +107,9 @@ namespace CRUDWebService.BusinessLayer.Services
             try
             {
                 var universityEntity = _db.Universities.Find(id);
+                if (universityEntity == null)
+                    return new UniversityBookDTO();
+
                 var universityBookEntities = _db.UniversityBooks.Where(p => p.UniversityId == id).ToList();
 
                 var universityBookDto = new UniversityBookDTO
@@ -122,13 +139,12 @@ namespace CRUDWebService.BusinessLayer.Services
             try
             {
                 var bookEntities = _db.Universities.ToList();
-                var universityBookGroupedEntities = _db.UniversityBooks.GroupBy(p => p.UniversityId).ToList();
 
                 var universityBooksDto = new List<UniversityBookDTO>();
 
                 foreach (var book in bookEntities)
                 {
-                    var universityBooks = universityBookGroupedEntities.Where(p => p.Key == book.UniversityId).Select(p => p.ToList()).SingleOrDefault();
+                    var universityBooks = _db.UniversityBooks.Where(p => p.UniversityId == book.UniversityId).ToList();
 
                     var universityWithBookInformation = new UniversityBookDTO
                     {

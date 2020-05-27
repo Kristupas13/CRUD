@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
@@ -13,14 +14,19 @@ namespace CRUDWebService
     {
         public static void Main(string[] args)
         {
-            CreateHostBuilder(args).Build().Run();
-        }
-
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webBuilder =>
+            var host = new WebHostBuilder()
+                .UseKestrel(x => x.AllowSynchronousIO = true)
+                .UseUrls("http://*:5050")
+                .UseContentRoot(Directory.GetCurrentDirectory())
+                .UseStartup<Startup>()
+                .ConfigureLogging(x =>
                 {
-                    webBuilder.UseStartup<Startup>();
-                });
+                    x.AddDebug();
+                    x.AddConsole();
+                })
+                .Build();
+
+            host.Run();
+        }
     }
 }

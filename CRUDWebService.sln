@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29728.190
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CRUDWebService", "CRUDWebService.csproj", "{CEDEFC08-DF55-4221-ABC0-60ABFDC90947}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CRUDWebService", "CRUDWebService.csproj", "{CEDEFC08-DF55-4221-ABC0-60ABFDC90947}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Program", "..\Program\Program.csproj", "{7150A69E-0EAB-4075-8048-EEE5287DA636}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{CEDEFC08-DF55-4221-ABC0-60ABFDC90947}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CEDEFC08-DF55-4221-ABC0-60ABFDC90947}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CEDEFC08-DF55-4221-ABC0-60ABFDC90947}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7150A69E-0EAB-4075-8048-EEE5287DA636}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7150A69E-0EAB-4075-8048-EEE5287DA636}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7150A69E-0EAB-4075-8048-EEE5287DA636}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7150A69E-0EAB-4075-8048-EEE5287DA636}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
